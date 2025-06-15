@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class PageImpl implements Page{
     private int pageNumber; // 页面的页号，从1开始计数
-    private byte[] data; // 实际包含的字节数据
+    private byte[] data; // 这个页实际包含的字节数据
     private boolean dirty; // 标志页面是否是脏页面，在缓存驱逐时，脏页面需要被写回磁盘。
     private Lock lock;
 

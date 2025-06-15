@@ -20,7 +20,7 @@ public interface TransactionManager {
     void close();
 
 
-    public static TransactionManagerImpl create(String path) {
+    public static TransactionManagerImpl create(String path) {  // 读取xid文件然后创建事务管理器
         File f = new File(path+TransactionManagerImpl.XID_SUFFIX);
         try {
             if(!f.createNewFile()) {

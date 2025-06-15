@@ -14,9 +14,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public abstract class AbstractCache<T> {
     // 键是资源的唯一标识符（通常是资源的ID或哈希值），值是缓存的资源对象（类型为 T）
     private HashMap<Long,T> cache;  // 实际缓存的数据
-    private HashMap<Long, Integer> references;  // 元素的引用数量
+    private HashMap<Long, Integer> references;  // 资源的引用个数---这就是引用计数法，就是记录某个资源被引用的次数
     // 只有一个线程可以互斥获得一个资源的锁的步骤是逻辑实现的，而不是这个锁本身的性质
-    private HashMap<Long, Boolean> getting;  // 正在获得某资源的线程(获取资源指的是将资源加载到缓存里面，如果使缓存的话，直接拿就可以了)
+    private HashMap<Long, Boolean> getting;  // (这是用来保证多线程环境下的线程安全的)正在获得某资源的线程(获取资源指的是将资源加载到缓存里面，如果使缓存的话，直接拿就可以了)
     // getting 用于记录哪些资源当前正在从数据源获取中。键是资源的唯一标识符，值是一个布尔值，表示该资源是否正在被获取中。
     private int maxResource;  // 缓存的最大缓存资源数
     private int count = 0;  // 缓存中元素的个数
@@ -32,11 +32,11 @@ public abstract class AbstractCache<T> {
 
     // 从缓存中获取资源
     protected T get(long key) throws Exception{
-        // 因为可能其他线程正在操作这个数据，因此要循环取获得锁
+        // 因为可能其他线程正在操作这个数据，因此要循环取获得锁----这里用死循环是因为万一其他线程在获取这个数据，那么就等会再来，所以是死循环
         while(true){
-            lock.lock();
+            lock.lock();  // 这个加锁是为了控制线程安全
             if(getting.get(key)){
-                // 如果其他线程正在获取这个资源，那么当前线程等待一毫秒然后继续循环
+                // 如果其他线程正在获取这个资源，自己先解锁，然后等待一毫秒然后继续循环
                 lock.unlock();
                 try{
                     Thread.sleep(1);
@@ -133,11 +133,11 @@ public abstract class AbstractCache<T> {
 
 
     /**
-     * 当资源不在缓存时的获取行为
+     * 当资源不在缓存时的获取行为---加载数据、初始化资源、预计算值（在对象首次加入缓存或回源重新加载时执行初始化）
      */
     protected abstract T getForCache(long key) throws Exception;
     /**
-     * 当资源被驱逐时的写回行为
+     * 当资源被驱逐时的写回行为---释放资源、持久化数据、清理状态
      */
     protected abstract void releaseForCache(T obj);
 

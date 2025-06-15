@@ -88,7 +88,7 @@ PageCache {
      * @throws Exception
      */
     @Override
-    protected Page getForCache(long key) throws Exception {
+    protected Page getForCache(long key) throws Exception {  //
         // 将key转换成页码
         int pano = (int) key;
         // 计算页码对应的偏移量
@@ -117,7 +117,7 @@ PageCache {
     @Override
     protected void releaseForCache(Page pg) {
         if(pg.isDirty()){ // 脏数据就是修改但未提交的数据嘛
-            flush(pg);  // 这就是提交的操作
+            flush(pg);  // 这就是提交的操作,就是写道磁盘里(其实就是mysql中)
             pg.setDirty(false);
         }
     }
@@ -157,7 +157,7 @@ PageCache {
         fileLock.lock();
         try{
             ByteBuffer buf = ByteBuffer.wrap(pg.getData());
-            fc.position(offset);
+            fc.position(offset);  // fc就是操作实际磁盘文件的通道
             fc.write(buf);
             fc.force(false);   // 就是写入到filechannel然后持久化
         }catch (Exception e){

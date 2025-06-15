@@ -15,7 +15,7 @@ import java.nio.channels.FileChannel;
  * 获取当前页面数量以及刷新页面等方法
  */
 public interface PageCache {
-    public static final int PAGE_SIZE = 1 << 13;
+    public static final int PAGE_SIZE = 1 << 13;  // 这是每页的大小
 
     int newPage(byte[] initData);
     Page getPage(int pano) throws Exception;
