@@ -46,13 +46,13 @@ public class PageIndex {
         lock.lock();
         try{
             int number = spaceSize / THRESHOLD;
-            if(number < INTERVALS_NO) number++;
+            if(number < INTERVALS_NO) number++;  // 防守式提升一个空闲度（更保险）因为100/25=4 同时101/25=4一样的，因此直接变大一个保险直接5*25=125
             while(number < INTERVALS_NO){
-                if(lists[number].size() == 0){
+                if(lists[number].size() == 0){ // 这就是这个区间没有合适的页，则number变大，找有更大空间的页
                     number++;
                     continue;
                 }
-                return lists[number].remove(0);
+                return lists[number].remove(0);  // 移除并返回第一个元素，也就是第一个页信息，PageInfo
             }
             return null;
         }finally{
