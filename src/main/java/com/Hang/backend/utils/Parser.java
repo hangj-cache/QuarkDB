@@ -26,8 +26,8 @@ public class Parser {
         return ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).putInt(value).array();
     }
 
-    public static int parseInt(byte[] buf) {
-        ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 4);
+    public static int parseInt(byte[] buf) {  // wrap是将字节数组包装成Buffer
+        ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 4);  // 因为整形本身就只占四个字节，要转为整形只取前四个字节就可以了
         return buffer.getInt();
     }
 

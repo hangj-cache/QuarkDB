@@ -42,6 +42,9 @@ public class DataItemImpl implements DataItem {
         this.pg = pg;
     }
 
+    public boolean isValid(){
+        return raw.raw[raw.start+OF_VALID] == (byte)0;
+    }
 
     @Override
     public SubArray data() {
@@ -51,21 +54,32 @@ public class DataItemImpl implements DataItem {
     }
 
     /*
+     * before() 是 修改前的准备：加锁、备份原始数据。
+     * unBefore() 是 撤销修改（undo）：恢复旧数据、释放锁。
+     * 它们成对使用，确保数据项要么成功更新，要么可以回滚到修改前状态。
+     */
+
+    /*
      * 在修改数据之前调用，用于锁定数据项并保存原始数据
      */
     @Override
     public void before() {
-
+        wLock.lock();
+        pg.setDirty(true);
+        System.arraycopy(raw.raw,raw.start,oldRaw,0,oldRaw.length);  // 备份原始数据
     }
 
+    /*
+     * 这就是撤销修改吧，和前面的before对应
+     */
     @Override
     public void unBefore() {
-
+        System.arraycopy(oldRaw,0,raw.raw,raw.start,oldRaw.length);
+        wLock.unlock();
     }
 
     @Override
     public void after(long xid) {
-
     }
 
     @Override

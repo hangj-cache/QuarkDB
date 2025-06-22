@@ -9,6 +9,8 @@ import com.Hang.backend.utils.Parser;
  * 普通页结构
  * [FreeSpaceOffset] [Data]
  * FreeSpaceOffset: 2字节 空闲位置开始偏移
+ *
+ * MYDB 对于普通数据页的管理就比较简单了。一个普通页面以一个 2 字节无符号数起始，表示这一页的空闲位置的偏移。剩下的部分都是实际存储的数据。
  */
 public class PageX {
     // 一个普通页面以一个 2 字节无符号数起始，表示这一页的空闲位置的偏移。剩下的部分都是实际存储的数据。
@@ -26,7 +28,7 @@ public class PageX {
         System.arraycopy(Parser.short2Byte(ofData),0,raw,OF_FREE,OF_DATA);
     }
 
-    // 获取pg的FSO
+    // 获取pg的FSO---FSO就是前两个字节，表示的是空闲空间的偏移----这个空闲空间偏移其实也代表了已经占据的空间的大小
     public static short getFSO(Page pg){
         return getFSO(pg.getData());
     }
@@ -37,7 +39,7 @@ public class PageX {
 
     // 将raw插入pg中，返回插入位置
     public static short insert(Page pg, byte[] raw){  // raw只是实际数据而已
-        pg.setDirty(true);
+        pg.setDirty(true);  // 修改磁盘中的数据，没刷入到磁盘，这个数据页就一直都是脏数据，而刷盘的时候也就是这个资源没有被引用的时候
         short offset = getFSO(pg.getData());
         System.arraycopy(raw,0,pg.getData(),offset,raw.length);
         setFSO(pg.getData(), (short) (offset+raw.length));
@@ -51,6 +53,8 @@ public class PageX {
 
     /*
     recoverInsert() 和 recoverUpdate() 用于在数据库崩溃后重新打开时，恢复例程直接插入数据以及修改数据使用
+    这两个数据库崩溃的时候用的，就是数据库崩了，但是现在还有缓存中的数据没写到数据库，导致数据不一致，
+    因此需要将缓存中commited或者aborted的事务重写，同时将正在进行active的事务进行撤销
      */
     // 将raw插入pg的offset位置，并将pg的offset设置为较大的offset
     public static void recoverInsert(Page pg, byte[] raw, short offset){

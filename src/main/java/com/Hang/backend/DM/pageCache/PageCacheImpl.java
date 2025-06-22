@@ -90,9 +90,9 @@ PageCache {
     @Override
     protected Page getForCache(long key) throws Exception {  //
         // 将key转换成页码
-        int pano = (int) key;
+        int pgno = (int) key;
         // 计算页码对应的偏移量
-        long offset = PageCacheImpl.pageOffset(pano);
+        long offset = PageCacheImpl.pageOffset(pgno);
 
         //分配一个大小为PAGE_SIZE的ByteBuffer
         ByteBuffer buf = ByteBuffer.allocate(PAGE_SIZE);
@@ -105,7 +105,7 @@ PageCache {
             Panic.panic(e);
         }
         fileLock.unlock();
-        return new PageImpl(pano,buf.array(),this);
+        return new PageImpl(pgno,buf.array(),this);
     }
 
     /**
@@ -132,7 +132,7 @@ PageCache {
      * @param maxPgno
      */
     @Override
-    public void truncateByBgno(int maxPgno) {
+    public void truncateByPgno(int maxPgno) {
         long size = pageOffset(maxPgno+1);
         try{
             // 把磁盘上的文件裁剪（或扩展）成你指定的长度，确保只保留你想要的页数据。(这是真实数据，不是缓存)
@@ -172,7 +172,7 @@ PageCache {
         return pageNumbers.get();
     }
 
-    public static long pageOffset(int pano){
-        return (pano - 1) * PAGE_SIZE;
-    }
+    public static long pageOffset(int pgno){
+        return (pgno - 1) * PAGE_SIZE;
+    }  // 这是因为数据页是从第1页开始的，但是在缓存层面则是从0开始的
 }

@@ -12,6 +12,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
+ * XID文件是用来首先记录事务的数量的，然后就是记录每一个事务所处的一个状态
  * 对 XID 文件进行校验，以保证这是一个合法的 XID 文件。
  * 校验的方式也很简单，通过文件头的 8 字节数字反推文件的理论长度，与文件的实际长度做对比。
  * 如果不同则认为 XID 文件不合法。对于校验没有通过的，会直接通过 panic 方法，强制停机。
