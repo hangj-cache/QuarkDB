@@ -25,7 +25,7 @@ PageCache {
 
     private AtomicInteger pageNumbers;  // 原子整数变量，用于多线程环境中对页数的计数
 
-    PageCacheImpl(RandomAccessFile file, FileChannel filechannel, int maxResource) {
+    PageCacheImpl(RandomAccessFile file, FileChannel filechannel, int maxResource) {  // maxResource这是最多几个Page
         super(maxResource); // 这是调用构造器，让这个变量由父类保存下来
         if(maxResource < MEM_MIN_LIM){
             Panic.panic(Error.MemTooSmallException);

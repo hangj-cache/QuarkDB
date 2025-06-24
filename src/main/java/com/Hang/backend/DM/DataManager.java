@@ -20,5 +20,6 @@ public interface DataManager {
         Logger lg = Logger.create(path);
 
         DataManagerImpl dm = new DataManagerImpl(pc,lg,tm);
+
     }
 }
