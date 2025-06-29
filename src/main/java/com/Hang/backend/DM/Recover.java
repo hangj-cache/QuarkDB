@@ -11,7 +11,13 @@ import com.Hang.backend.utils.Panic;
 import com.Hang.backend.utils.Parser;
 import com.google.common.primitives.Bytes;
 
-import java.util.Arrays;
+import java.sql.SQLOutput;
+import java.util.*;
+
+/**
+ * Recover 类负责在数据库启动时执行崩溃恢复操作：通过扫描日志，确保已提交事务的数据被重做（REDO），
+ * 未提交事务的数据被撤销（UNDO），从而恢复一致性状态。
+ */
 
 public class Recover {
     // 首先定义两种日志的格式 (XID 是事务的 ID，用来标识“一次操作过程”；UID 是记录的唯一 ID，用来标识“一条数据”)
@@ -20,7 +26,8 @@ public class Recover {
     // updateLog: [LogType] [XID] [UID] [OldRaw] [NewRaw]
     // insertLog: [LogType] [XID] [Pgno] [offset] [Raw]
 
-    // 标记是重做还是撤销
+    // 标记是重做还是撤销  已完成事务的就重做，未完成事务的就撤销   事务有两种完成形式：提交和回滚，事务完成了可能是提交或者回滚了，提交了的事务就是完成的事务
+    // 回滚只能作用于尚未提交的事务（也就是“进行中的事务”）
     private static final int REDO = 0;
     private static final int UNDO = 1;
 
@@ -40,6 +47,42 @@ public class Recover {
         byte[] newRaw;
     }
 
+
+    public static void recover(TransactionManager tm, Logger lg, PageCache pc){
+        System.out.println("Recoverint...");
+
+        lg.rewind();  // 日志文件的前四个字节是这个日志文件的校验和，后面是一个一个独立的日志
+        int maxPgno = 0;
+        while(true){
+            byte[] log = lg.next();
+            if(log == null) break;
+            int pgno;
+            if(isInsertLog(log)){
+                InsertLogInfo li = parseInsertLog(log);
+                pgno = li.pgno;
+            }else{
+                UpdateLogInfo li = parseUpdateLog(log);
+                pgno = li.pgno;
+            }
+            if(pgno > maxPgno){
+                maxPgno = pgno;
+            }
+        }
+
+        if(maxPgno == 0){
+            maxPgno = 1;
+        }
+
+        pc.truncateByPgno(maxPgno);  // 这是进行崩溃恢复，就是恢复到和日志一样的状态
+        System.out.println("Truncate to " + maxPgno + " pages.");
+        redoTranscation(tm,lg,pc);
+        System.out.println("Redo Transaction Over.");
+        undoTranscation(tm,lg,pc);
+        System.out.println("Undo Transaction Over.");
+
+        System.out.println("Recovery Over.");
+    }
+
     // recover要做的主要就是两步：重做所有已完成事务，撤销所有未完成事务
     private static void redoTranscation(TransactionManager tm, Logger lg, PageCache pc){
         lg.rewind();
@@ -51,6 +94,57 @@ public class Recover {
                 long xid = li.xid;
                 if(!tm.isActive(xid)){
                     doInsertLog(pc,log,REDO);
+                }
+            }else{
+                UpdateLogInfo li = parseUpdateLog(log);
+                long xid = li.xid;
+                if(!tm.isActive(xid)){
+                    doInsertLog(pc,log,REDO);
+                }
+            }
+        }
+    }
+
+    /*
+    收集所有未提交（active）事务的日志，缓存进内存，准备倒序地执行 UNDO 操作。
+    这里只是进行收集
+     */
+    private static void undoTranscation(TransactionManager tm, Logger lg, PageCache pc){
+        Map<Long, List<byte[]>> logCache = new HashMap<>();
+        lg.rewind();  // 这就是把position指针移到4位置，就是跳过校验和
+        while(true){
+            byte[] log = lg.next();
+            if(log == null) break;
+            if(isInsertLog(log)){
+                InsertLogInfo li = parseInsertLog(log);
+                long xid = li.xid;
+                if(tm.isActive(xid)){
+                    if(!logCache.containsKey(xid)){
+                        logCache.put(xid,new ArrayList<>());
+                    }
+                    logCache.get(xid).add(log);
+                }
+            }else{
+                UpdateLogInfo li = parseUpdateLog(log);
+                long xid = li.xid;
+                if(tm.isActive(xid)){
+                    if(!logCache.containsKey(xid)){
+                        logCache.put(xid,new ArrayList<>());
+                    }
+                    logCache.get(xid).add(log);
+                }
+            }
+        }
+
+        // 开始对所有active log 进行倒序undo
+        for(Map.Entry<Long,List<byte[]>> entry : logCache.entrySet()){
+            List<byte[]> logs = entry.getValue();
+            for (int i = logs.size()-1; i >= 0; i--) {
+                byte[] log = logs.get(i);
+                if(isInsertLog(log)){
+                    doInsertLog(pc,log,UNDO);
+                }else{
+                    doUpdateLog(pc,log,UNDO);
                 }
             }
         }
@@ -66,7 +160,7 @@ public class Recover {
     private static final int OF_UPDATE_UID = OF_XID + 8;
     private static final int OF_UPDATE_RAW = OF_UPDATE_UID + 8;
 
-    private static byte[] updateLog(long xid, DataItem di){  // 这就是将这个操作组装成一个updateLog
+    public static byte[] updateLog(long xid, DataItem di){  // 这就是将这个操作组装成一个updateLog
         byte[] logType = {LOG_TYPE_UPDATE};
         byte[] xidRaw = Parser.long2Byte(xid);
         byte[] uidRaw = Parser.long2Byte(di.getUid());
@@ -158,8 +252,11 @@ public class Recover {
 
         try{
             if(flag == UNDO){
-                DataItem.
+                DataItem.setDataItemRawInvalid(li.raw);  // 这个只是设置这个dataItem的raw是否有效，如果是撤销的话就设置这个原始数据raw无效即可
             }
+            PageX.recoverInsert(pg,li.raw,li.offset);  // 不管redo还是undo都是要执行这部分的
+        }finally{
+            pg.release();
         }
     }
 

@@ -17,11 +17,12 @@ import java.util.concurrent.locks.ReentrantLock;
  * 日志文件读写
  *
  * 日志文件标准格式为:
- * [XChecksum] [Log1] [Log2] [] ... [LogN] [BadTail]
+ * [XChecksum] [Log1] [Log2] [] ... [LogN] [BadTail]   position是对单个日志记录的指向 指向这里面的一个个log
  * XChectsum 为后续所有日志计算的Checksum, int类型
  *
  * 每条正确日志的格式为：
- * [Size] [Checksum] [Data]
+ * [Size] [Checksum] [Data]    ===   这里的 Data 就是 insert、update 等类型日志的原始内容，它们格式不一样，都是已经由别的方法生成好的。
+ *                                   wraplog在外面包size以及校验和字段
  * Size 4字节 int标识Data长度
  * Checksum 4字节 int
  */
@@ -117,7 +118,11 @@ public class LoggerImpl implements Logger{
         rewind(); // 最终初始化文件头，就是position
     }
 
-    private byte[] internNext(){  // 这个的作用是读取当前的日志，同时移动position指向下一个日志的开头的位置
+    /**
+     * 从日志文件中读取下一条完整的日志记录（包括头部和数据），并做 校验和校验，如果无误则返回该日志内容（包含头部），否则返回 null。
+     * @return
+     */
+    private byte[] internNext(){  // 这个的作用是返回当前的日志，同时移动position指向下一个日志的开头的位置（日志文件中有很多个log）
         if(position + OF_DATA >= fileSize){
             return null;
         }
@@ -163,6 +168,10 @@ public class LoggerImpl implements Logger{
         return xCheck;
     }
 
+    /**
+     * 将一条数据库操作日志（data）封装后追加写入日志文件，确保写前日志（WAL）机制生效。
+     * @param data
+     */
     @Override
     public void log(byte[] data) {
         byte[] log = wrapLog(data);
@@ -191,6 +200,7 @@ public class LoggerImpl implements Logger{
     }
 
     // wrapLog 是用来组合size、checksum以及data字段，最终返回的就是一个完整的日志数据（字节数组）
+    // 构造“日志记录结构”
     private byte[] wrapLog(byte[] data){
         byte[] checksum = Parser.int2Byte(calChecksum(0, data));  // 这是计算日志文件的校验和
         byte[] size = Parser.int2Byte(data.length); // 数据长度字段
@@ -207,11 +217,56 @@ public class LoggerImpl implements Logger{
         }
     }
 
+//    /**
+//     * 从日志文件中读取下一条完整的日志记录（包括头部和数据），并做 校验和校验，如果无误则返回该日志内容（包含头部），否则返回 null。
+//     * @return
+//     */
+//    private byte[] internNext(){
+//        if(position + OF_DATA >= fileSize){
+//            return null;  // 这说明以及没有多余的数据了
+//        }
+//        ByteBuffer tmp = ByteBuffer.allocate(4);
+//        try{
+//            fc.position(position);
+//            fc.read(tmp);
+//        }catch (Exception e){
+//            Panic.panic(e);
+//        }
+//
+//        int size = Parser.parseInt(tmp.array());
+//
+//        if(position + size + OF_SIZE > fileSize){
+//            return null;
+//        }
+//
+//        ByteBuffer buf = ByteBuffer.allocate(OF_DATA + size);  // 这是一条日志的大小
+//        try{
+//            fc.position(position);
+//            fc.read(buf);
+//        }catch (Exception e){
+//            Panic.panic(e);
+//        }
+//
+//        byte[] log = buf.array();
+//        int checkSum1 = calChecksum(0,Arrays.copyOfRange(log,OF_DATA,log.length));
+//        int checkSum2 = Parser.parseInt(Arrays.copyOfRange(log,OF_CHECKSUM,OF_DATA));
+//        if(checkSum1 != checkSum2){
+//            return null;
+//        }
+//        position += log.length;
+//        return log;
+//
+//    }
+
+    /**
+     * 从日志文件中读取下一条合法的日志记录内容（去掉封装头），用于恢复或重放。
+     * @return
+     */
     @Override
     public byte[] next() {
         lock.lock();
         try{
-            byte[] log = internNext();
+            byte[] log = internNext();  // interNext()就是读取日志内容，然后校验是否正确，返回该日志内容同时position移到下一条日志
             if(log == null){
                 return null;
             }
@@ -222,7 +277,7 @@ public class LoggerImpl implements Logger{
     }
 
     @Override
-    public void rewind() {  // rewind表示倒带，就是回复position的最初位置
+    public void rewind() {  // rewind表示倒带，就是恢复position的最初位置
         position = 4;  // 整个日志文件的开头是有4个字节的Xchecksum的，因此要偏移四个字节，后面就都是日志数据了
     }
 

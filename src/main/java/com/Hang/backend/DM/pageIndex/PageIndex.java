@@ -7,18 +7,23 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * PageIndex 用来高效地管理数据库中各页的空闲空间，并快速选择一页来插入新数据。
+ */
 public class PageIndex {
     // 将一页划分成40个区间
     private static final int INTERVALS_NO = 40;  // interval : 间隔
     private static final int THRESHOLD = PageCache.PAGE_SIZE / INTERVALS_NO;  // 这是平均每一个区间的大小(阈值)
 
     /*
-    把一个页的可用空间平均分成 40 段（INTERVALS_NO = 40），每段大小是 THRESHOLD = PageCache.PAGE_SIZE / 40 字节。
+    把一个页的可用空间平均分成 40 段（INTERVALS_NO = 40），每段大小是 THRESHOLD = PageCache.PAGE_SIZE / 40 (字节)。
     然后根据页的空闲空间落在哪段，就放进 lists[number] 中，支持分段查找 + 快速插入页选择。
      */
 
     private Lock lock;
-    private List<PageInfo>[] lists;  // 这是一个数组，每个元素是一个list集合
+    private List<PageInfo>[] lists;  // 这是一个数组，每个元素是一个list集合  这个数组的不同索引代表不同大小的空闲度  int number = freeSpace / THRESHOLD;
+    // 就是比如lists[1] 代表空闲度为1的页的集合（int number = freeSpace / THRESHOLD） 空闲都的单位就是TREESHOLD = PageCache.PAGE_SIZE / INTERVALS_NO
+    // 空闲度等级一共有40级，因为freespace，就是一个页的空闲空间最大也就PageCache.PAGE_SIZE，所以这个等级最大就是40
 
     @SuppressWarnings("unchecked") // 作用是：告诉编译器“我知道我在干什么”，请不要对这一行代码产生“泛型未经检查的类型转换”警告。
     // 在 Java 中，不允许直接创建泛型数组。

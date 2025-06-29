@@ -90,6 +90,10 @@ PageCache {
     @Override
     protected Page getForCache(long key) throws Exception {  //
         // 将key转换成页码
+        /*
+        在任何现实系统中，页号不可能超过 Integer.MAX_VALUE = 2,147,483,647（21 亿页已经是数 TB 级别的数据了）。
+        所以：key 是 long，只是为了泛化、统一接口设计，但实际上它存储的就是一个 int 范围的页号。(都是页号的意思)
+         */
         int pgno = (int) key;
         // 计算页码对应的偏移量
         long offset = PageCacheImpl.pageOffset(pgno);

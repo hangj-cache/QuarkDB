@@ -10,6 +10,8 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * AbstractCache 实现了一个引用计数策略的缓存------其实就是引用计数法的一个逻辑框架
  * 引用技术缓存框架
+ *
+ * cache存的时全部的数据，因为页(Page)是内存管理的最小单位，因此数据都是存到页中的，因此cache存储的是一个键值对，其中的值就是页，键时页号pageNumber
  */
 public abstract class AbstractCache<T> {
     // 键是资源的唯一标识符（通常是资源的ID或哈希值），值是缓存的资源对象（类型为 T）

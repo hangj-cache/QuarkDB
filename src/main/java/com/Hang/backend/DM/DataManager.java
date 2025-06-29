@@ -2,6 +2,7 @@ package com.Hang.backend.DM;
 
 import com.Hang.backend.DM.dataItem.DataItem;
 import com.Hang.backend.DM.logger.Logger;
+import com.Hang.backend.DM.page.PageOne;
 import com.Hang.backend.DM.pageCache.PageCache;
 import com.Hang.backend.DM.pageCache.PageCacheImpl;
 import com.Hang.backend.TM.TransactionManager;
@@ -20,6 +21,12 @@ public interface DataManager {
         Logger lg = Logger.create(path);
 
         DataManagerImpl dm = new DataManagerImpl(pc,lg,tm);
-
+        if(!dm.loadCheckPageOne()){
+            Recover.recover(tm,lg,pc);
+        }
+        dm.fillPageIndex();  // 启动的时候对每一页进行最大空闲空间的初始化操作一开始都是最大空间8kb
+        PageOne.setVcOpen(dm.pageOne);  // 就是初始化好版本控制的一个字段，一个随机数  RandomUtil.randomBytes(LEN_VC)
+        dm.pc.flushPage(dm.pageOne);  // 就是对这一页进行一个刷盘
+        return dm;
     }
 }

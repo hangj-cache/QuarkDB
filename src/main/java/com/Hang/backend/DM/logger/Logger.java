@@ -19,6 +19,12 @@ import java.util.RandomAccess;
  * 这个方法其实就是创建这个接口对应对象，将这个实例化过程隐藏在接口中，因此所有日志对象的创建都只用调用日志接口的这个静态方法就可以了
  */
 
+/**
+ * Logger 用于管理数据库操作日志（WAL）的写入、读取与重放，是事务持久性与崩溃恢复的关键模块。
+ *
+ * 这个 Logger 接口是面向 一个日志文件（log file） 的操作抽象，它提供对这个文件中的多条日志记录的统一读写接口。
+ */
+
 public interface Logger {
     void log(byte[] data);
     void truncate(long x) throws Exception;

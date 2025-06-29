@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * dataItem中保存的数据是这样的：[ValidFlag] [DataSize] [Data]
+ * dataItem中保存的数据是这样的：[ValidFlag] [DataSize] [Data]    每个page里面管理一个个dataItem
  * validFlag占一个字节，标志这个DataItem是否有效
  * DataSize占两个字节，标志后面Data的长度
  * 其余都是Data
@@ -24,7 +24,7 @@ public class DataItemImpl implements DataItem {
     private byte[] oldRaw; // 旧的原始数据
     private DataManagerImpl dm; // 数据管理器
     private long uid; // 唯一标识符
-    private Page pg; // 页面对象
+    private Page pg; // 页面对象  这个DataItem属于这个数据页
 
     // mysql中操作数据用的就是读写锁
     private Lock rLock; // 读锁
@@ -80,50 +80,52 @@ public class DataItemImpl implements DataItem {
 
     @Override
     public void after(long xid) {
+        dm.logDataItem(xid,this);
+        wLock.lock();
     }
 
     @Override
     public void release() {
-
+        dm.releaseDataItem(this);
     }
 
     @Override
     public void lock() {
-
+        wLock.lock();
     }
 
     @Override
     public void unlock() {
-
+        wLock.unlock();
     }
 
     @Override
     public void rLock() {
-
+        rLock.lock();
     }
 
     @Override
     public void rUnlock() {
-
+        rLock.unlock();
     }
 
     @Override
     public Page page() {
-        return null;
+        return pg;
     }
 
     @Override
     public long getUid() {
-        return 0;
+        return uid;
     }
 
     @Override
     public byte[] getOldRaw() {
-        return new byte[0];
+        return oldRaw;
     }
 
     @Override
     public SubArray getRaw() {
-        return null;
+        return raw;
     }
 }

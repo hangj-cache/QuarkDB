@@ -30,8 +30,8 @@ public class PageImpl implements Page{
     }
 
     @Override
-    public void release() {
-        pc.release(this);
+    public void release() {  // 将当前对象（通常是某种“资源”）释放回资源池或缓存系统中，供后续重复使用，避免重复创建。
+        pc.release(this);  // this：代表当前对象，也就是当前使用的资源。
     }
 
     @Override
