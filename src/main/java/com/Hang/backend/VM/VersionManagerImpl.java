@@ -6,6 +6,7 @@ import com.Hang.backend.TM.TransactionManager;
 import com.Hang.backend.common.AbstractCache;
 
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 
 /**
  * 1. 管理事务的版本可见性
@@ -38,6 +39,8 @@ public class VersionManagerImpl extends AbstractCache<Entry> implements VersionM
     TransactionManager tm;
     DataManager dm;
     Map<Long, Transaction> activeTransactions;
+    Lock lock;
+    LockTable lt;
 
     @Override
     public byte[] read(long xid, long uid) throws Exception {
