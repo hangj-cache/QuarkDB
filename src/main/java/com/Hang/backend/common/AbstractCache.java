@@ -92,7 +92,8 @@ public abstract class AbstractCache<T> {
     /**
      * 强行释放一个缓存(指的是一个资源的缓存)(有很多个线程去引用这块资源的)
      *
-     * // releaseForCache是将需要移除的数据写回到磁盘里去，保证数据一致性；release的话使完整的移除一个缓存数据，包含写回和删除cache中的数据以及references中引用数-1
+     * releaseForCache是将需要移除的数据写回到磁盘里去，保证数据一致性；release的话使完整的移除一个缓存数据，
+     * 包含写回和删除cache中的数据以及references中引用数-1
      */
     protected void release(long key){
         lock.lock();

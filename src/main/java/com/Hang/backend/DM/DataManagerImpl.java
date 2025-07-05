@@ -56,6 +56,9 @@ public class DataManagerImpl extends AbstractCache<DataItem> implements DataMana
         return di;
     }
 
+    /*
+    在数据库中插入一条数据（data），并返回这条数据的 UID（唯一标识地址）。
+     */
     @Override
     public long insert(long xid, byte[] data) throws Exception {
         byte[] raw = DataItem.wrapDataItemRaw(data);

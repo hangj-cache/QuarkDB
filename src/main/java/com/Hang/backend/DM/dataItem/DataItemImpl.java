@@ -34,7 +34,11 @@ public class DataItemImpl implements DataItem {
     public DataItemImpl(SubArray raw, byte[] oldRaw,Page pg, long uid, DataManagerImpl dm) {
         this.raw = raw;
         this.oldRaw = oldRaw;
-        ReadWriteLock lock = new ReentrantReadWriteLock();
+        ReadWriteLock lock = new ReentrantReadWriteLock();  // （读写锁，允许多个线程并发读，但写是互斥的）   ReentrantLock是独占锁
+        /*
+        读锁虽然允许多个线程同时读，但是他和不加锁还是有区别的，因为读锁可以限制写操作，而不加锁不行，
+        不加锁可能读到写了一半的数据，数据不一致，而在读锁中，写线程必须等待读锁释放，防止脏读，然后写的话直接用写锁进行互斥，它仍然提供了“读一致性”和“写隔离”：
+         */
         rLock = lock.readLock();
         wLock = lock.writeLock();
         this.uid = uid;

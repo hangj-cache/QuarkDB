@@ -62,7 +62,7 @@ public class Transaction {
         return t;
     }
 
-    public boolean isInactive(long xid){
+    public boolean isInSnapshot(long xid){
         if(xid == TransactionManagerImpl.SUPER_XID){
             return false;
         }

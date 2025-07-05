@@ -133,7 +133,7 @@ public class TransactionManagerImpl implements TransactionManager {
     // 检查一个XID位置事物的状态是否和status一致
     private boolean checkXID(long xid, byte status){
         long offset = getXidPosition(xid);
-        ByteBuffer buf = ByteBuffer.wrap(new byte[XID_FILE_SIZE]);
+        ByteBuffer buf = ByteBuffer.wrap(new byte[XID_FILE_SIZE]);  // 每个XID_FILE_SIZE就为1
 //        ByteBuffer buf = ByteBuffer.allocate(XID_FILE_SIZE);  // 这样也可以
         try{
             fc.position(offset);

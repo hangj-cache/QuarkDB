@@ -88,7 +88,7 @@ PageCache {
      * @throws Exception
      */
     @Override
-    protected Page getForCache(long key) throws Exception {  //
+    protected Page  getForCache(long key) throws Exception {  //
         // 将key转换成页码
         /*
         在任何现实系统中，页号不可能超过 Integer.MAX_VALUE = 2,147,483,647（21 亿页已经是数 TB 级别的数据了）。
