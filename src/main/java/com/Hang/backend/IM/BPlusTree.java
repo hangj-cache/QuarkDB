@@ -18,6 +18,10 @@ import java.util.concurrent.locks.ReentrantLock;
 系统初始化时创建的根对象或入口对象的 UID（Unique Identifier）。
 
 加上boot的是为了表示它们都与 B+ 树的根节点（或根节点的记录）有关，也就是所谓的“引导信息（bootstrap info）”。
+
+这棵 B+ 树中的索引是由 key 的大小来表现的，整个树是按 key 的顺序组织的，即：
+
+B+树中的 key 是用于排序、查找、范围查询的主依据，它决定了树的结构和分裂规则。
  */
 public class BPlusTree {  // BPlusTree 类只需要存储根节点的 UID，就能完整代表一棵 B+ 树
     DataManager dm;  // 底层的数据管理器，负责存储节点
@@ -51,7 +55,7 @@ public class BPlusTree {  // BPlusTree 类只需要存储根节点的 UID，就�
     作用是从磁盘中 加载一棵已有的 B+ 树,由bootUid来加载
      */
     public static BPlusTree load(long bootUid,DataManager dm) throws Exception {
-        DataItem bootDataItem = dm.read(bootUid);
+        DataItem bootDataItem = dm.read(bootUid);  // 其实b+树的存储其实只是存一个bootuid，真实的B+树的结构还是需要上层进行封装的
         assert bootDataItem != null;
         BPlusTree t = new BPlusTree();
         t.bootUid = bootUid;
@@ -187,9 +191,9 @@ public class BPlusTree {  // BPlusTree 类只需要存储根节点的 UID，就�
         node.release();
 
         InsertRes res = null;
-        if(isLeaf){
+        if(isLeaf){  // 是叶子节点才直接插入
             res = insertAndSplit(nodeUid, uid, key);
-        }else{
+        }else{  // 不是叶子节点，就去找叶子节点
             long next = searchNext(nodeUid, key);
             InsertRes ir = insert(next, uid, key);
             if(ir.newNode != 0){

@@ -29,4 +29,25 @@ public interface DataManager {
         dm.pc.flushPage(dm.pageOne);  // 就是对这一页进行一个刷盘
         return dm;
     }
+
+    /*
+    打开一个已有的数据库文件，或初始化一个新的数据管理器（DataManager）
+    并确保：
+    恢复机制正常
+    索引加载完毕
+    第一页的版本控制数据（PageOne）有效
+     */
+    public static DataManager open(String path, long mem, TransactionManager tm) {
+        PageCache pc = PageCache.open(path, mem);
+        Logger lg = Logger.open(path);
+        DataManagerImpl dm = new DataManagerImpl(pc, lg, tm);
+        if(!dm.loadCheckPageOne()) {
+            Recover.recover(tm, lg, pc);
+        }
+        dm.fillPageIndex();
+        PageOne.setVcOpen(dm.pageOne);
+        dm.pc.flushPage(dm.pageOne);
+
+        return dm;
+    }
 }

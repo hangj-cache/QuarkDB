@@ -304,3 +304,153 @@ long newRootUid = dm.insert(xid, rootRaw);
 🧱 所以你可以理解为：
 
 > **事务 ID（xid） = 日志的“归属标签” + 版本控制的“时间戳” + 崩溃恢复的关键线索**
+
+
+
+
+
+#### 五、UID
+
+`uid`（Unique ID）本质上就是该数据在磁盘中的物理地址或者逻辑引用位置。
+
+
+
+
+
+#### 六、B+树构建---`uid` 就是 **B+树中某个节点在磁盘上的地址**
+
+ `BPlusTree` 类是一个**基于磁盘的数据管理层（DataManager）构建的持久化 B+ 树实现**，其构建流程遵循了数据库系统中 B+ 树的基本设计思路，并通过事务机制（如 `SUPER_XID`）保障操作的原子性与一致性。下面是完整的构建流程总结：
+
+## 🧠 一、核心概念
+
+- **B+树节点存储在磁盘中**，每个节点有唯一的 UID（Unique Identifier）。
+- 整棵树通过一个 `bootUid` 启动，即最初记录**根节点 UID**的记录。
+- 所有插入、更新、查找操作都以 `bootUid` 为入口，通过递归方式操作磁盘节点。
+- 事务号 `SUPER_XID` 用于系统级操作（初始化等）。
+
+------
+
+## 🏗️ 二、构建过程详解
+
+### 🟢 1. 创建 B+ 树（`create(DataManager dm)`）
+
+```java
+public static long create(DataManager dm) throws Exception {
+    byte[] rawRoot = Node.newNilRootRaw();                   // 创建空的叶子根节点数据--不存数据
+    long rootUid = dm.insert(SUPER_XID, rawRoot);            // 插入根节点，获取其 UID
+    return dm.insert(SUPER_XID, Parser.long2Byte(rootUid));  // 用 rootUid 创建“boot record”，并返回其 UID（bootUid）
+}
+```
+
+- 创建一个**空的根节点**（作为叶子节点）。
+- 将其插入磁盘，返回 `rootUid`。
+- 将 `rootUid` 转换为 8 字节数据存入新的记录（即 `bootDataItem`）。
+- 返回此“引导记录”的 UID，作为整棵树的入口。
+
+------
+
+### 🟡 2. 加载 B+ 树（`load(long bootUid, DataManager dm)`）
+
+```java
+public static BPlusTree load(long bootUid, DataManager dm)
+```
+
+- 加载之前创建的 `bootUid` 对应的记录（bootDataItem）。
+- 从中解析出当前根节点的 UID（8 字节存储）。
+- 初始化 `BPlusTree` 实例，并保持 bootDataItem 的引用。
+
+```
+@Override  // 根据uid读取对应的数据,这个uid可以是getting中的key，也可以是cache中的key，也可以是也缓存中的页码，用于此磁盘中读取对应数据
+public DataItem read(long uid) throws Exception {
+    DataItemImpl di = (DataItemImpl) super.get(uid);
+    if(!di.isValid()){
+        di.release();
+        return null;
+    }
+    return di;
+}
+```
+
+------
+
+## 🌳 三、插入过程（核心构建逻辑）
+
+### 🔁 insert(long key, long uid)   uid表示地址
+
+这是插入一个 `(key, dataUid)` 的入口：
+
+1. 调用 `rootUid()` 获取当前根节点。
+2. 调用递归插入逻辑 `insert(...)`。
+3. 如果插入导致根节点分裂，则调用 `updateRootUid(...)` 创建新的根节点。
+
+------
+
+### 🔄 insert(...) 递归插入
+
+```java
+private InsertRes insert(long nodeUid, long uid, long key)
+```
+
+- 如果是叶子节点 → 执行 `insertAndSplit(...)`。
+- 如果是中间节点 → 找到对应子节点，递归插入；如果子节点分裂，需要将中间键插入当前节点。
+
+------
+
+### ✂️ insertAndSplit(...)
+
+```java
+Node.InsertAndSplitRes iasr = node.insertAndSplit(uid, key)
+```
+
+- 执行节点内部插入。
+- 如果节点溢出 → 分裂并返回：
+  - `newSon`: 新分裂出来的节点的 UID。
+  - `newKey`: 分裂时的中间键（推向上层节点）。
+
+------
+
+### ⬆️ updateRootUid(...)
+
+如果原根节点发生了分裂：
+
+1. 创建一个**新的非叶子根节点**，包含左右孩子。
+2. 把新的根节点写入磁盘，获取 `newRootUid`。
+3. 使用 `bootLock` 加锁，更新 bootDataItem 里的 rootUid。
+4. 用 `SUPER_XID` 提交修改。
+
+------
+
+## 🔍 四、查询逻辑（search & searchRange）
+
+### search(key)
+
+- 调用 `searchRange(key, key)` 进行单键查询。
+
+### searchRange(leftKey, rightKey)
+
+1. 从 `rootUid()` 开始递归，找到包含 `leftKey` 的叶子节点。
+2. 逐个遍历叶子节点链表（通过 siblingUid 链接），收集范围内的 key。
+3. 返回所有匹配的记录 UID。
+
+------
+
+## 🧱 五、辅助类说明
+
+- `Node`：封装了节点的结构与插入、查找、分裂等操作。
+- `bootDataItem`：表示存储根节点 UID 的特殊记录，是整个 B+ 树的入口。
+- `InsertRes`：用于记录插入过程中产生的新节点和中间 key。
+
+------
+
+## ✅ 总结
+
+> 这个 `BPlusTree` 是一个**磁盘持久化、支持事务、支持范围查找与分裂重构的 B+ 树实现**，非常适合用于数据库索引系统中。
+
+**构建核心步骤：**
+
+1. `create()` 创建根节点并保存为 bootUid。
+2. `insert(key, uid)` 递归插入，必要时自动分裂并构造新的根。
+3. 所有查找以 bootUid 为起点递归执行，支持范围查找。
+4. 所有磁盘修改通过 `DataManager` + `TransactionManager` 执行，保证持久性与一致性。
+
+![ChatGPT Image 2025年7月6日 17_36_21](C:\Users\HangJ\Downloads\ChatGPT Image 2025年7月6日 17_36_21.png)

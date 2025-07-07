@@ -40,9 +40,12 @@ public class Parser {
         return ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(value).array();
     }
 
+    /*
+    从一个字节数组中解析出一个字符串，并返回它的内容和它在原始字节数组中所占的总字节数。
+     */
     public static ParseStringRes parseString(byte[] raw) {
-        int length = parseInt(Arrays.copyOf(raw, 4));
-        String str = new String(Arrays.copyOfRange(raw, 4, 4+length));
+        int length = parseInt(Arrays.copyOf(raw, 4));  // 从 raw[0..3] 中读取前 4 个字节，表示接下来字符串的长度。
+        String str = new String(Arrays.copyOfRange(raw, 4, 4+length));  // 从下标 4 到 4 + length - 1 是字符串的内容，字节数组转变为字符串
         return new ParseStringRes(str, length+4);
     }
 
