@@ -1,7 +1,7 @@
 package com.Hang.transport;
 
 import com.google.common.primitives.Bytes;
-import top.guoziyang.mydb.common.Error;
+import com.Hang.common.Error;
 
 import java.util.Arrays;
 
